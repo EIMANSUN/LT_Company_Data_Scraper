@@ -125,13 +125,16 @@ def writeDataRow(file_name, data_row, fieldnames):
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writerow(data_row)
 
+n_url = len(url_df)
+print(f"Begin scraping {n_url} links...")
+writeHeaders(file_name, fieldnames)
 
 for url in url_df.iloc[:,0]:
     start = time.perf_counter()
-    soup = loadPage(test_url, 3, user_agent)
+    soup = loadPage(url, 3, user_agent)
     data_row = scrapeCompanyData(soup)
     writeDataRow(file_name, data_row, fieldnames)
     finish = time.perf_counter()
-    print(f'Succesfully scraped URL: {url}. Scraping took: {finish-start}')
-
-writeHeaders(file_name, fieldnames)
+    n_url -= 1
+    print(f'Succesfully scraped URL: {url}.')
+    print(f"Scraping took: {finish-start}. URL's remaining: {n_url}")
