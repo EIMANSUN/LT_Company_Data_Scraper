@@ -42,10 +42,18 @@ def loadUserAgents(filename):
         user_agent = random.choice(user_agents_list)
         return user_agent
 
+# Move this function outside the script into scraping_tools.py
 def loadPage(url, delay, user_agent):
     """Loads and returns html contents of the page"""
     headers = {'User-Agent': user_agent}
-    r = requests.get(test_url, headers=headers)
+    try:
+        r = requests.get(url, headers=headers)
+    except:
+        print(f"Failed to load url: {url} \nStatus code: {r.status_code} \nSwitching user-agent and trying again...")
+        time.sleep(delay)
+        user_agent = loadUserAgents('data/user_agents.csv')
+        loadPage(url, delay, user_agent)
+
     time.sleep(delay)
     soup = BeautifulSoup(r.content, 'lxml')
 
@@ -53,8 +61,8 @@ def loadPage(url, delay, user_agent):
     capcha = soup.find('div',{'class':'content unusualTraffic'})
     if capcha:
         time.sleep(delay)
-        user_agent = loadUserAgents('data/user_agents.csv')
         print('Capcha detecting! Switching User-Agent and retrying...')
+        user_agent = loadUserAgents('data/user_agents.csv')
         loadPage(url, delay, user_agent)
     else:
         return soup
@@ -100,9 +108,13 @@ def scrapeCompanyData(soup):
         elif header_name == 'Employees':
             data_row[header_name] = table_data.split(' ')[0]
         elif header_name == 'Sales revenue':
-            result = re.search(r'\d+\s*\d*\s*[-]\s*\d*\s*\d*', table_data)
-            data_row[header_name + ' From'] = result[0].replace(' ', '').split('-')[0]
-            data_row[header_name + ' To'] = result[0].replace(' ', '').split('-')[1]
+            # Search for  year: from - to € excl. VAT 
+            pattern = (r'\d*:\s*(\d[\d\s]*-*[\d\s]*)')
+            result = re.search(pattern, table_data).group(1)
+            # Remove white space and split on '-'
+            result = result.replace(' ', '').split('-')
+            data_row[header_name + ' From'] = result[0]
+            data_row[header_name + ' To'] = result[1]
         elif header_name == 'Rating':
             try:
                 rating = table_rows[i].find_all('td')[2].select('span')[0].get_text()
@@ -131,8 +143,7 @@ writeHeaders(file_name, fieldnames)
 
 for url in url_df.iloc[:,0]:
     start = time.perf_counter()
-    soup = loadPage(url, 3, user_agent)
-    data_row = scrapeCompanyData(soup)
+    data_row = scrapeCompanyData(loadPage(url, 3, user_agent))
     writeDataRow(file_name, data_row, fieldnames)
     finish = time.perf_counter()
     n_url -= 1
