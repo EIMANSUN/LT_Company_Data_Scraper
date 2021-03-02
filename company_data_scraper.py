@@ -27,11 +27,11 @@ user_agent = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:80.0) Gecko/20100101
 test_url = 'https://rekvizitai.vz.lt/en/company/uab_royal_accounting/'
 
 # Drop duplicate links from companies_url_scraper data
-df = pd.read_csv('data/initial_test_companies_url.csv', header=None)
-df.columns = ['URL', 'Category']
-df.drop_duplicates(subset='URL', keep=False, inplace=True)
-url_df = df.reset_index(drop=True)
-print(df.head())
+url_df = pd.read_csv('data/initial_test_companies_url.csv', header=None)
+url_df.columns = ['URL', 'Category']
+url_df.drop_duplicates(subset='URL', keep=False, inplace=True)
+url_df = url_df.reset_index(drop=True)
+print(url_df.head())
 
 # Initialize data folder and log file
 if "data" not in os.listdir():
