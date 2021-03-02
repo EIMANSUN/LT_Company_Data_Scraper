@@ -2,12 +2,15 @@ import pandas as pd
 from bs4 import BeautifulSoup
 import requests
 import time
+import datetime
 import random
 import re
 import csv
+import os
 
 # Setup
-file_name = 'data/company_data.csv'
+data_file = 'data/company_data.csv'
+log_file = 'data/log.csv'
 
 # Column names for csv file. Also, related to data_filter in
 # scrapeCompanyData() funtion (Maybe its a good idea to make data_filter global
@@ -30,6 +33,28 @@ df.drop_duplicates(subset='URL', keep=False, inplace=True)
 url_df = df.reset_index(drop=True)
 print(df.head())
 
+# Initialize data folder and log file
+if "data" not in os.listdir():
+    os.mkdir("data")
+    print("Data folder has been created.")
+else:
+    print("Data already exists.")
+
+
+def logEvent(event):
+    """Save event to csv"""
+    date_stamp = datetime.datetime.now().strftime("%y-%m-%d, %H:%M:%S")
+    fieldnames = ["Time", "Event"]
+    if log_file not in os.listdir("data"):
+        with open(log_file, "w", newline="") as file:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+        print("Log file has been created.")
+    with open(log_file, "a", newline="") as file:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        log_row = {"Time":date_stamp, "Event":event}
+        writer.writerow(log_row)
+
 
 def loadUserAgents(filename):
     '''Loads User-Agents from csv file'''
@@ -47,6 +72,7 @@ def loadPage(url, delay, user_agent):
     """Loads and returns html contents of the page"""
     headers = {'User-Agent': user_agent}
     try:
+        print(f"Loading URL: {url}")
         r = requests.get(url, headers=headers)
     except:
         print(f"Failed to load url: {url} \nStatus code: {r.status_code} \nSwitching user-agent and trying again...")
@@ -108,13 +134,17 @@ def scrapeCompanyData(soup):
         elif header_name == 'Employees':
             data_row[header_name] = table_data.split(' ')[0]
         elif header_name == 'Sales revenue':
-            # Search for  year: from - to € excl. VAT 
-            pattern = (r'\d*:\s*(\d[\d\s]*-*[\d\s]*)')
-            result = re.search(pattern, table_data).group(1)
-            # Remove white space and split on '-'
-            result = result.replace(' ', '').split('-')
-            data_row[header_name + ' From'] = result[0]
-            data_row[header_name + ' To'] = result[1]
+            try:
+                # Search for  year: from - to € excl. VAT
+                pattern = (r'\d*:\s*(\d[\d\s]*-*[\d\s]*)')
+                result = re.search(pattern, table_data).group(1)
+                # Remove white space and split on '-'
+                result = result.replace(' ', '').split('-')
+                data_row[header_name + ' From'] = result[0]
+                data_row[header_name + ' To'] = result[1]
+            except AttributeError:
+                event = (f"Failed to parse 'Sales revenue' for {url}")
+                logEvent(event)
         elif header_name == 'Rating':
             try:
                 rating = table_rows[i].find_all('td')[2].select('span')[0].get_text()
@@ -125,26 +155,26 @@ def scrapeCompanyData(soup):
                 continue
     return data_row
 
-def writeHeaders(file_name, fieldnames):
+def writeHeaders(data_file, fieldnames):
     """Writes headers to csv file"""
-    with open(file_name, 'w', newline='') as csvfile:
+    with open(data_file, 'w', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
 
-def writeDataRow(file_name, data_row, fieldnames):
+def writeDataRow(data_file, data_row, fieldnames):
     """Appends rows to csv file"""
-    with open(file_name, 'a', newline='') as csvfile:
+    with open(data_file, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writerow(data_row)
 
 n_url = len(url_df)
 print(f"Begin scraping {n_url} links...")
-writeHeaders(file_name, fieldnames)
+writeHeaders(data_file, fieldnames)
 
 for url in url_df.iloc[:,0]:
     start = time.perf_counter()
     data_row = scrapeCompanyData(loadPage(url, 3, user_agent))
-    writeDataRow(file_name, data_row, fieldnames)
+    writeDataRow(data_file, data_row, fieldnames)
     finish = time.perf_counter()
     n_url -= 1
     print(f'Succesfully scraped URL: {url}.')
