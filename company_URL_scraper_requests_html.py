@@ -11,8 +11,14 @@ url_initial = 'https://rekvizitai.vz.lt/en/companies/'
 session = HTMLSession()
 fieldnames = ["comapny_url"]
 
+if "data" not in os.listdir():
+    os.mkdir("data")
+    print("Data folder has been created.")
+else:
+    print("Data already exists.")
+
 #Create empty csv file:
-data_file = f'companies_url_{date_stamp}.csv'
+data_file = f'/data/companies_url_{date_stamp}.csv'
 with open(data_file, 'w') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
